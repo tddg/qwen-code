@@ -1,5 +1,5 @@
 {
-  "name": "@qwen-code/qwen-code",
+  "name": "@qwen-code/qwen-code-cs6501",
   "version": "0.0.4",
   "engines": {
     "node": ">=20.0.0"
@@ -49,7 +49,7 @@
     "clean": "node scripts/clean.js"
   },
   "bin": {
-    "qwen": "bundle/gemini.js"
+    "qwen-cs6501": "bundle/gemini.js"
   },
   "files": [
     "bundle/",

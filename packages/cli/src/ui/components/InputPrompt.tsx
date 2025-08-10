@@ -211,6 +211,19 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
         return;
       }
 
+      // Log typing start event on first keypress
+      if (buffer.text.length === 0 && key.sequence && key.sequence.trim()) {
+        // Import and use the user behavior logger
+        import('@qwen-code/qwen-code-core')
+          .then((core) => {
+            const logger = core.UserBehaviorLogger.getInstance(config);
+            logger.logTypingStart(config.getSessionId() + '########' + Date.now());
+          })
+          .catch(() => {
+            // Silently ignore logging errors
+          });
+      }
+
       if (
         key.sequence === '!' &&
         buffer.text === '' &&

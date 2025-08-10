@@ -44,3 +44,4 @@ export {
 export { SpanStatusCode, ValueType } from '@opentelemetry/api';
 export { SemanticAttributes } from '@opentelemetry/semantic-conventions';
 export * from './uiTelemetry.js';
+export * from './userBehaviorLogger.js';

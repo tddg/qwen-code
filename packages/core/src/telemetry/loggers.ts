@@ -41,6 +41,7 @@ import { isTelemetrySdkInitialized } from './sdk.js';
 import { uiTelemetryService, UiEvent } from './uiTelemetry.js';
 import { ClearcutLogger } from './clearcut-logger/clearcut-logger.js';
 import { safeJsonStringify } from '../utils/safeJsonStringify.js';
+import { UserBehaviorLogger } from './userBehaviorLogger.js';
 
 const shouldLogUserPrompts = (config: Config): boolean =>
   config.getTelemetryLogPromptsEnabled();
@@ -85,6 +86,7 @@ export function logCliConfiguration(
 
 export function logUserPrompt(config: Config, event: UserPromptEvent): void {
   ClearcutLogger.getInstance(config)?.logNewPromptEvent(event);
+  UserBehaviorLogger.getInstance(config).logPromptSubmit(event);
   if (!isTelemetrySdkInitialized()) return;
 
   const attributes: LogAttributes = {
@@ -147,6 +149,10 @@ export function logToolCall(config: Config, event: ToolCallEvent): void {
 
 export function logApiRequest(config: Config, event: ApiRequestEvent): void {
   ClearcutLogger.getInstance(config)?.logApiRequestEvent(event);
+  UserBehaviorLogger.getInstance(config).logApiRequest(
+    event.model,
+    event.prompt_id
+  );
   if (!isTelemetrySdkInitialized()) return;
 
   const attributes: LogAttributes = {
@@ -236,6 +242,16 @@ export function logApiResponse(config: Config, event: ApiResponseEvent): void {
   } as UiEvent;
   uiTelemetryService.addEvent(uiEvent);
   ClearcutLogger.getInstance(config)?.logApiResponseEvent(event);
+  
+  // Log to user behavior logger
+  UserBehaviorLogger.getInstance(config).logApiResponse(
+    event.model,
+    event.prompt_id,
+    event.input_token_count,
+    event.output_token_count,
+    event.duration_ms
+  );
+  
   if (!isTelemetrySdkInitialized()) return;
   const attributes: LogAttributes = {
     ...getCommonAttributes(config),
