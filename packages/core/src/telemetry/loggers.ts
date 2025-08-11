@@ -151,16 +151,36 @@ export function logApiRequest(config: Config, event: ApiRequestEvent): void {
   ClearcutLogger.getInstance(config)?.logApiRequestEvent(event);
   UserBehaviorLogger.getInstance(config).logApiRequest(
     event.model,
-    event.prompt_id
+    event.prompt_id,
+    event.operation_type,
+    event.tools_called,
+    event.request_context,
+    event.estimated_input_tokens,
+    event.conversation_turn,
+    event.has_file_context,
+    event.system_prompt_length,
   );
   if (!isTelemetrySdkInitialized()) return;
 
   const attributes: LogAttributes = {
     ...getCommonAttributes(config),
-    ...event,
     'event.name': EVENT_API_REQUEST,
     'event.timestamp': new Date().toISOString(),
+    model: event.model,
+    prompt_id: event.prompt_id,
+    request_text: event.request_text,
+    operation_type: event.operation_type,
+    request_context: event.request_context,
+    estimated_input_tokens: event.estimated_input_tokens,
+    conversation_turn: event.conversation_turn,
+    has_file_context: event.has_file_context,
+    system_prompt_length: event.system_prompt_length,
   };
+
+  // Add optional tools_called field if it exists
+  if (event.tools_called) {
+    attributes.tools_called = JSON.stringify(event.tools_called);
+  }
 
   const logger = logs.getLogger(SERVICE_NAME);
   const logRecord: LogRecord = {
@@ -242,23 +262,38 @@ export function logApiResponse(config: Config, event: ApiResponseEvent): void {
   } as UiEvent;
   uiTelemetryService.addEvent(uiEvent);
   ClearcutLogger.getInstance(config)?.logApiResponseEvent(event);
-  
+
   // Log to user behavior logger
   UserBehaviorLogger.getInstance(config).logApiResponse(
     event.model,
     event.prompt_id,
     event.input_token_count,
     event.output_token_count,
-    event.duration_ms
+    event.duration_ms,
+    event.response_type,
   );
-  
+
   if (!isTelemetrySdkInitialized()) return;
   const attributes: LogAttributes = {
     ...getCommonAttributes(config),
-    ...event,
     'event.name': EVENT_API_RESPONSE,
     'event.timestamp': new Date().toISOString(),
+    model: event.model,
+    status_code: event.status_code,
+    duration_ms: event.duration_ms,
+    error: event.error,
+    input_token_count: event.input_token_count,
+    output_token_count: event.output_token_count,
+    cached_content_token_count: event.cached_content_token_count,
+    thoughts_token_count: event.thoughts_token_count,
+    tool_token_count: event.tool_token_count,
+    total_token_count: event.total_token_count,
+    response_text: event.response_text,
+    prompt_id: event.prompt_id,
+    auth_type: event.auth_type,
+    response_type: event.response_type,
   };
+
   if (event.response_text) {
     attributes.response_text = event.response_text;
   }

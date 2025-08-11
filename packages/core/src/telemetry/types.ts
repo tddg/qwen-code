@@ -148,13 +148,49 @@ export class ApiRequestEvent {
   model: string;
   prompt_id: string;
   request_text?: string;
+  // Enhanced fields
+  operation_type?:
+    | 'chat'
+    | 'completion'
+    | 'embedding'
+    | 'tool_call'
+    | 'unknown';
+  tools_called?: string[]; // Array of tool names being requested
+  request_context?: 'new' | 'continuation' | 'tool_result'; // Context of the request
+  estimated_input_tokens?: number; // Estimated tokens before sending
+  conversation_turn?: number; // Turn number in the conversation
+  has_file_context?: boolean; // Whether file context is included
+  system_prompt_length?: number; // Length of system prompt
 
-  constructor(model: string, prompt_id: string, request_text?: string) {
+  constructor(
+    model: string,
+    prompt_id: string,
+    request_text?: string,
+    operation_type?:
+      | 'chat'
+      | 'completion'
+      | 'embedding'
+      | 'tool_call'
+      | 'unknown',
+    tools_called?: string[],
+    request_context?: 'new' | 'continuation' | 'tool_result',
+    estimated_input_tokens?: number,
+    conversation_turn?: number,
+    has_file_context?: boolean,
+    system_prompt_length?: number,
+  ) {
     this['event.name'] = 'api_request';
     this['event.timestamp'] = new Date().toISOString();
     this.model = model;
     this.prompt_id = prompt_id;
     this.request_text = request_text;
+    this.operation_type = operation_type;
+    this.tools_called = tools_called;
+    this.request_context = request_context;
+    this.estimated_input_tokens = estimated_input_tokens;
+    this.conversation_turn = conversation_turn;
+    this.has_file_context = has_file_context;
+    this.system_prompt_length = system_prompt_length;
   }
 }
 
@@ -206,6 +242,13 @@ export class ApiResponseEvent {
   response_text?: string;
   prompt_id: string;
   auth_type?: string;
+  // Enhanced fields
+  response_type?:
+    | 'tool_call'
+    | 'text_response'
+    | 'mixed'
+    | 'error'
+    | 'streaming_chunk';
 
   constructor(
     model: string,
@@ -215,6 +258,12 @@ export class ApiResponseEvent {
     usage_data?: GenerateContentResponseUsageMetadata,
     response_text?: string,
     error?: string,
+    response_type?:
+      | 'tool_call'
+      | 'text_response'
+      | 'mixed'
+      | 'error'
+      | 'streaming_chunk',
   ) {
     this['event.name'] = 'api_response';
     this['event.timestamp'] = new Date().toISOString();
@@ -231,6 +280,7 @@ export class ApiResponseEvent {
     this.error = error;
     this.prompt_id = prompt_id;
     this.auth_type = auth_type;
+    this.response_type = response_type;
   }
 }
 

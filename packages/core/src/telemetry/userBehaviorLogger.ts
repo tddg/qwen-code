@@ -11,14 +11,43 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 export interface UserBehaviorEvent {
-  eventType: 'typing_start' | 'prompt_submit' | 'api_request' | 'api_response';
+  eventType:
+    | 'prompt_submit'
+    | 'prompt_cancel'
+    | 'typing_start'
+    | 'api_request'
+    | 'api_response'
+    | 'api_error'
+    | 'flash_fallback'
+    | 'loop_detected'
+    | 'at_command'
+    | 'shell_command';
   timestamp: number;
+  model?: string;
   promptId?: string;
   content?: string;
   inputTokenCount?: number;
   outputTokenCount?: number;
-  model?: string;
   durationMs?: number;
+  error?: string;
+  errorType?: string;
+  authType?: string;
+  sessionId?: string;
+  // API request specific fields
+  operationType?: 'chat' | 'tool_call' | 'completion' | 'embedding' | 'unknown';
+  toolsCalled?: string[];
+  requestContext?: 'new' | 'continuation' | 'tool_result';
+  estimatedTokens?: number;
+  conversationTurn?: number;
+  hasFileContext?: boolean;
+  systemPromptLength?: number;
+  // API response specific fields
+  responseType?:
+    | 'tool_call'
+    | 'text_response'
+    | 'mixed'
+    | 'error'
+    | 'streaming_chunk';
 }
 
 export class UserBehaviorLogger {
@@ -54,7 +83,7 @@ export class UserBehaviorLogger {
       };
 
       const logLine = safeJsonStringify(logEntry) + '\n';
-      
+
       // Append to log file
       fs.appendFileSync(this.logFilePath, logLine);
     } catch (error) {
@@ -84,12 +113,34 @@ export class UserBehaviorLogger {
     });
   }
 
-  logApiRequest(model: string, promptId: string): void {
+  logApiRequest(
+    model: string,
+    promptId: string,
+    operationType?:
+      | 'chat'
+      | 'completion'
+      | 'embedding'
+      | 'tool_call'
+      | 'unknown',
+    toolsCalled?: string[],
+    requestContext?: 'new' | 'continuation' | 'tool_result',
+    estimatedTokens?: number,
+    conversationTurn?: number,
+    hasFileContext?: boolean,
+    systemPromptLength?: number,
+  ): void {
     this.logEvent({
       eventType: 'api_request',
       timestamp: Date.now(),
       model,
       promptId,
+      operationType,
+      toolsCalled,
+      requestContext,
+      estimatedTokens,
+      conversationTurn,
+      hasFileContext,
+      systemPromptLength,
     }).catch(() => {
       // Silently ignore logging errors
     });
@@ -100,7 +151,13 @@ export class UserBehaviorLogger {
     promptId: string,
     inputTokenCount: number,
     outputTokenCount: number,
-    durationMs: number
+    durationMs: number,
+    responseType?:
+      | 'tool_call'
+      | 'text_response'
+      | 'mixed'
+      | 'error'
+      | 'streaming_chunk',
   ): void {
     this.logEvent({
       eventType: 'api_response',
@@ -110,6 +167,7 @@ export class UserBehaviorLogger {
       inputTokenCount,
       outputTokenCount,
       durationMs,
+      responseType,
     }).catch(() => {
       // Silently ignore logging errors
     });

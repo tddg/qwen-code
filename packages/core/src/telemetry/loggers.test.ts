@@ -5,11 +5,7 @@
  */
 
 import { describe, it, beforeEach, afterEach, expect, vi } from 'vitest';
-import {
-  logUserPrompt,
-  logApiRequest,
-  logApiResponse,
-} from './loggers.js';
+import { logUserPrompt, logApiRequest, logApiResponse } from './loggers.js';
 import { UserBehaviorLogger } from './userBehaviorLogger.js';
 import { Config } from '../config/config.js';
 
@@ -74,11 +70,18 @@ describe('Logger modifications', () => {
 
   beforeEach(() => {
     mockConfig = new MockConfig() as unknown as Config;
-    
+
     // Mock the UserBehaviorLogger methods
-    vi.spyOn(UserBehaviorLogger.prototype, 'logPromptSubmit').mockImplementation(() => Promise.resolve());
-    vi.spyOn(UserBehaviorLogger.prototype, 'logApiRequest').mockImplementation(() => Promise.resolve());
-    vi.spyOn(UserBehaviorLogger.prototype, 'logApiResponse').mockImplementation(() => Promise.resolve());
+    vi.spyOn(
+      UserBehaviorLogger.prototype,
+      'logPromptSubmit',
+    ).mockImplementation(() => Promise.resolve());
+    vi.spyOn(UserBehaviorLogger.prototype, 'logApiRequest').mockImplementation(
+      () => Promise.resolve(),
+    );
+    vi.spyOn(UserBehaviorLogger.prototype, 'logApiResponse').mockImplementation(
+      () => Promise.resolve(),
+    );
   });
 
   afterEach(() => {
@@ -94,7 +97,9 @@ describe('Logger modifications', () => {
 
     logUserPrompt(mockConfig, mockUserPromptEvent);
 
-    expect(UserBehaviorLogger.prototype.logPromptSubmit).toHaveBeenCalledWith(mockUserPromptEvent);
+    expect(UserBehaviorLogger.prototype.logPromptSubmit).toHaveBeenCalledWith(
+      mockUserPromptEvent,
+    );
   });
 
   it('should call UserBehaviorLogger when logging API request', () => {
@@ -107,7 +112,14 @@ describe('Logger modifications', () => {
 
     expect(UserBehaviorLogger.prototype.logApiRequest).toHaveBeenCalledWith(
       'test-model',
-      'test-prompt-id'
+      'test-prompt-id',
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
     );
   });
 
@@ -127,7 +139,8 @@ describe('Logger modifications', () => {
       'test-prompt-id',
       50,
       75,
-      1234
+      1234,
+      undefined,
     );
   });
 });

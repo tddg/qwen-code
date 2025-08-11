@@ -141,16 +141,205 @@ export class GeminiChat {
     return JSON.stringify(contents);
   }
 
+  // Helper method to detect operation type
+  private _detectOperationType(
+    contents: Content[],
+  ): 'chat' | 'tool_call' | 'completion' | 'embedding' | 'unknown' {
+    // Check if any content has function calls
+    for (const content of contents) {
+      if (content.role === 'model' && content.parts) {
+        for (const part of content.parts) {
+          if (part.functionCall) {
+            return 'tool_call';
+          }
+        }
+      }
+    }
+
+    // If we have a conversation history, it's likely a chat
+    if (contents.length > 1) {
+      return 'chat';
+    }
+
+    // For single turn, we'll default to chat for now
+    // In the future, we could analyze the content to determine if it's a completion or embedding request
+    if (contents.length === 1) {
+      return 'chat';
+    }
+
+    return 'unknown';
+  }
+
+  // Helper method to extract tools called
+  private _extractToolsCalled(contents: Content[]): string[] {
+    const tools: string[] = [];
+
+    // Look for function calls in the contents
+    for (const content of contents) {
+      if (content.role === 'model' && content.parts) {
+        for (const part of content.parts) {
+          if (part.functionCall && part.functionCall.name) {
+            tools.push(part.functionCall.name);
+          }
+        }
+      }
+    }
+
+    // Remove duplicates
+    return [...new Set(tools)];
+  }
+
+  // Helper method to determine request context
+  private _determineRequestContext(
+    contents: Content[],
+  ): 'new' | 'continuation' | 'tool_result' {
+    if (contents.length === 0) {
+      return 'new';
+    }
+
+    // Check if the last content is a function response (tool result)
+    const lastContent = contents[contents.length - 1];
+    if (lastContent.role === 'user') {
+      const hasFunctionResponse = lastContent.parts?.some(
+        (part) => part.functionResponse,
+      );
+      if (hasFunctionResponse) {
+        return 'tool_result';
+      }
+    }
+
+    // If we have more than one content, it's a continuation
+    if (contents.length > 1) {
+      return 'continuation';
+    }
+
+    // Otherwise, it's a new request
+    return 'new';
+  }
+
+  // Helper method to estimate tokens (simplified)
+  private _estimateTokens(contents: Content[]): number {
+    let tokenCount = 0;
+
+    for (const content of contents) {
+      if (content.parts) {
+        for (const part of content.parts) {
+          if (part.text) {
+            // Rough estimation: 1 token per 4 characters
+            tokenCount += Math.ceil(part.text.length / 4);
+          }
+        }
+      }
+    }
+
+    return tokenCount;
+  }
+
+  // Helper method to check for file context
+  private _hasFileContext(contents: Content[]): boolean {
+    for (const content of contents) {
+      if (content.parts) {
+        for (const part of content.parts) {
+          // Check for file-related content
+          if (
+            part.text &&
+            (part.text.includes('file:') ||
+              part.text.includes('.txt') ||
+              part.text.includes('.js') ||
+              part.text.includes('.ts') ||
+              part.text.includes('.py') ||
+              part.text.includes('.json'))
+          ) {
+            return true;
+          }
+        }
+      }
+    }
+    return false;
+  }
+
+  // Helper method to get system prompt length
+  private _getSystemPromptLength(contents: Content[]): number {
+    // In this implementation, we don't have explicit system prompts
+    // but we could check for special content marked as system
+    return 0;
+  }
+
   private async _logApiRequest(
     contents: Content[],
     model: string,
     prompt_id: string,
   ): Promise<void> {
     const requestText = this._getRequestTextFromContents(contents);
+
+    // Collect enhanced data
+    const operationType = this._detectOperationType(contents);
+    const toolsCalled = this._extractToolsCalled(contents);
+    const requestContext = this._determineRequestContext(contents);
+    const estimatedTokens = this._estimateTokens(contents);
+    const conversationTurn = Math.ceil(contents.length / 2); // Rough estimate
+    const hasFileContext = this._hasFileContext(contents);
+    const systemPromptLength = this._getSystemPromptLength(contents);
+
     logApiRequest(
       this.config,
-      new ApiRequestEvent(model, prompt_id, requestText),
+      new ApiRequestEvent(
+        model,
+        prompt_id,
+        requestText,
+        operationType,
+        toolsCalled,
+        requestContext,
+        estimatedTokens,
+        conversationTurn,
+        hasFileContext,
+        systemPromptLength,
+      ),
     );
+  }
+
+  // Helper method to detect response type
+  private _detectResponseType(
+    response: unknown,
+  ): 'tool_call' | 'text_response' | 'mixed' | 'error' | 'streaming_chunk' {
+    if (!response) {
+      return 'error';
+    }
+
+    // Type guard for response object
+    if (typeof response !== 'object' || response === null) {
+      return 'error';
+    }
+
+    // Check for candidates array
+    const candidates = (response as any).candidates;
+    if (!Array.isArray(candidates)) {
+      // Check if it's a streaming chunk
+      if ((response as any).isChunk) {
+        return 'streaming_chunk';
+      }
+      return 'error';
+    }
+
+    // Check for tool calls
+    const hasToolCalls = candidates.some((candidate) =>
+      candidate.content?.parts?.some((part: any) => part.functionCall),
+    );
+
+    // Check for text content
+    const hasText = candidates.some((candidate) =>
+      candidate.content?.parts?.some((part: any) => part.text),
+    );
+
+    if (hasToolCalls && hasText) {
+      return 'mixed';
+    } else if (hasToolCalls) {
+      return 'tool_call';
+    } else if (hasText) {
+      return 'text_response';
+    }
+
+    return 'error';
   }
 
   private async _logApiResponse(
@@ -159,6 +348,20 @@ export class GeminiChat {
     usageMetadata?: GenerateContentResponseUsageMetadata,
     responseText?: string,
   ): Promise<void> {
+    // Parse response text to get structured data
+    let response: unknown = null;
+    if (responseText) {
+      try {
+        response = JSON.parse(responseText);
+      } catch (e) {
+        // If parsing fails, we'll work with the raw text
+        // This is expected for streaming responses
+      }
+    }
+
+    // Collect enhanced data
+    const responseType = this._detectResponseType(response);
+
     logApiResponse(
       this.config,
       new ApiResponseEvent(
@@ -168,6 +371,8 @@ export class GeminiChat {
         this.config.getContentGeneratorConfig()?.authType,
         usageMetadata,
         responseText,
+        undefined, // error
+        responseType,
       ),
     );
   }

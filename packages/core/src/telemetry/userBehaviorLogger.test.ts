@@ -30,7 +30,7 @@ describe('UserBehaviorLogger', () => {
     mockConfig = new MockConfig() as unknown as Config;
     logger = UserBehaviorLogger.getInstance(mockConfig);
     logFilePath = logger.getLogFilePath();
-    
+
     // Clear any existing log file
     if (fs.existsSync(logFilePath)) {
       fs.unlinkSync(logFilePath);
@@ -42,7 +42,7 @@ describe('UserBehaviorLogger', () => {
     if (fs.existsSync(logFilePath)) {
       fs.unlinkSync(logFilePath);
     }
-    
+
     // Reset singleton instance
     // @ts-expect-error - accessing private field for testing
     UserBehaviorLogger.instance = undefined;
@@ -66,11 +66,11 @@ describe('UserBehaviorLogger', () => {
 
     // Check that the file was created and contains the event
     expect(fs.existsSync(logFilePath)).toBe(true);
-    
+
     const logContent = fs.readFileSync(logFilePath, 'utf-8');
     const logLines = logContent.trim().split('\n');
     expect(logLines).toHaveLength(1);
-    
+
     const loggedEvent = JSON.parse(logLines[0]);
     expect(loggedEvent.eventType).toBe('prompt_submit');
     expect(loggedEvent.promptId).toBe('test-prompt-id');
@@ -108,7 +108,7 @@ describe('UserBehaviorLogger', () => {
     const logLines = logContent.trim().split('\n');
     expect(logLines).toHaveLength(3);
 
-    const loggedEvents = logLines.map(line => JSON.parse(line));
+    const loggedEvents = logLines.map((line) => JSON.parse(line));
     expect(loggedEvents[0].eventType).toBe('typing_start');
     expect(loggedEvents[1].eventType).toBe('prompt_submit');
     expect(loggedEvents[2].eventType).toBe('api_request');
@@ -128,15 +128,18 @@ describe('UserBehaviorLogger', () => {
 
     const disabledConfig = new MockConfigDisabled() as unknown as Config;
     // Get instance through the singleton pattern
-    const loggerWithDisabledTelemetry = UserBehaviorLogger.getInstance(disabledConfig);
-    
+    const loggerWithDisabledTelemetry =
+      UserBehaviorLogger.getInstance(disabledConfig);
+
     // Reset singleton instance for this test to ensure we get a fresh instance
     // @ts-expect-error - accessing private field for testing
     UserBehaviorLogger.instance = undefined;
-    
+
     // Get a new instance with disabled telemetry
-    const freshLoggerWithDisabledTelemetry = UserBehaviorLogger.getInstance(disabledConfig);
-    const disabledLogFilePath = freshLoggerWithDisabledTelemetry.getLogFilePath();
+    const freshLoggerWithDisabledTelemetry =
+      UserBehaviorLogger.getInstance(disabledConfig);
+    const disabledLogFilePath =
+      freshLoggerWithDisabledTelemetry.getLogFilePath();
 
     // Clear any existing log file
     if (fs.existsSync(disabledLogFilePath)) {
@@ -158,7 +161,9 @@ describe('UserBehaviorLogger', () => {
   it('should handle logging errors gracefully', async () => {
     // Temporarily replace the log file path with a non-writable location
     const originalGetLogFilePath = logger.getLogFilePath;
-    logger.getLogFilePath = vi.fn().mockReturnValue('/invalid/path/to/logfile.log');
+    logger.getLogFilePath = vi
+      .fn()
+      .mockReturnValue('/invalid/path/to/logfile.log');
 
     const event: UserBehaviorEvent = {
       eventType: 'prompt_submit',
@@ -178,7 +183,7 @@ describe('UserBehaviorLogger', () => {
     logger.logTypingStart(promptId);
 
     // Wait a bit for the async logging to complete
-    await new Promise(resolve => setTimeout(resolve, 10));
+    await new Promise((resolve) => setTimeout(resolve, 10));
 
     const logContent = fs.readFileSync(logFilePath, 'utf-8');
     const logLines = logContent.trim().split('\n');
@@ -199,7 +204,7 @@ describe('UserBehaviorLogger', () => {
     logger.logPromptSubmit(mockUserPromptEvent);
 
     // Wait a bit for the async logging to complete
-    await new Promise(resolve => setTimeout(resolve, 10));
+    await new Promise((resolve) => setTimeout(resolve, 10));
 
     const logContent = fs.readFileSync(logFilePath, 'utf-8');
     const logLines = logContent.trim().split('\n');
@@ -215,11 +220,11 @@ describe('UserBehaviorLogger', () => {
   it('should log API request events', async () => {
     const model = 'test-model';
     const promptId = 'test-prompt-id';
-    
+
     logger.logApiRequest(model, promptId);
 
     // Wait a bit for the async logging to complete
-    await new Promise(resolve => setTimeout(resolve, 10));
+    await new Promise((resolve) => setTimeout(resolve, 10));
 
     const logContent = fs.readFileSync(logFilePath, 'utf-8');
     const logLines = logContent.trim().split('\n');
@@ -238,10 +243,16 @@ describe('UserBehaviorLogger', () => {
     const outputTokenCount = 75;
     const durationMs = 1234;
 
-    logger.logApiResponse(model, promptId, inputTokenCount, outputTokenCount, durationMs);
+    logger.logApiResponse(
+      model,
+      promptId,
+      inputTokenCount,
+      outputTokenCount,
+      durationMs,
+    );
 
     // Wait a bit for the async logging to complete
-    await new Promise(resolve => setTimeout(resolve, 10));
+    await new Promise((resolve) => setTimeout(resolve, 10));
 
     const logContent = fs.readFileSync(logFilePath, 'utf-8');
     const logLines = logContent.trim().split('\n');
