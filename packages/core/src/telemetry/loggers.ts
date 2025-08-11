@@ -152,6 +152,7 @@ export function logApiRequest(config: Config, event: ApiRequestEvent): void {
   UserBehaviorLogger.getInstance(config).logApiRequest(
     event.model,
     event.prompt_id,
+    event.request_id,
     event.operation_type,
     event.tools_called,
     event.request_context,
@@ -267,6 +268,7 @@ export function logApiResponse(config: Config, event: ApiResponseEvent): void {
   UserBehaviorLogger.getInstance(config).logApiResponse(
     event.model,
     event.prompt_id,
+    event.request_id,
     event.input_token_count,
     event.output_token_count,
     event.duration_ms,

@@ -26,11 +26,13 @@ export interface ContentGenerator {
   generateContent(
     request: GenerateContentParameters,
     userPromptId: string,
+    requestId?: string,
   ): Promise<GenerateContentResponse>;
 
   generateContentStream(
     request: GenerateContentParameters,
     userPromptId: string,
+    requestId?: string,
   ): Promise<AsyncGenerator<GenerateContentResponse>>;
 
   countTokens(request: CountTokensParameters): Promise<CountTokensResponse>;

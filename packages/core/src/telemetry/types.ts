@@ -147,6 +147,7 @@ export class ApiRequestEvent {
   'event.timestamp': string; // ISO 8601
   model: string;
   prompt_id: string;
+  request_id: string; // Unique identifier for this specific request
   request_text?: string;
   // Enhanced fields
   operation_type?:
@@ -165,6 +166,7 @@ export class ApiRequestEvent {
   constructor(
     model: string,
     prompt_id: string,
+    request_id: string,
     request_text?: string,
     operation_type?:
       | 'chat'
@@ -183,6 +185,7 @@ export class ApiRequestEvent {
     this['event.timestamp'] = new Date().toISOString();
     this.model = model;
     this.prompt_id = prompt_id;
+    this.request_id = request_id;
     this.request_text = request_text;
     this.operation_type = operation_type;
     this.tools_called = tools_called;
@@ -241,6 +244,7 @@ export class ApiResponseEvent {
   total_token_count: number;
   response_text?: string;
   prompt_id: string;
+  request_id: string; // Unique identifier linking this response to its request
   auth_type?: string;
   // Enhanced fields
   response_type?:
@@ -254,6 +258,7 @@ export class ApiResponseEvent {
     model: string,
     duration_ms: number,
     prompt_id: string,
+    request_id: string,
     auth_type?: string,
     usage_data?: GenerateContentResponseUsageMetadata,
     response_text?: string,
@@ -279,6 +284,7 @@ export class ApiResponseEvent {
     this.response_text = response_text;
     this.error = error;
     this.prompt_id = prompt_id;
+    this.request_id = request_id;
     this.auth_type = auth_type;
     this.response_type = response_type;
   }

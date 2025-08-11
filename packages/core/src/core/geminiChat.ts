@@ -32,6 +32,7 @@ import {
   ApiResponseEvent,
 } from '../telemetry/types.js';
 import { DEFAULT_GEMINI_FLASH_MODEL } from '../config/models.js';
+import * as crypto from 'crypto';
 
 /**
  * Returns true if the response is valid, false otherwise.
@@ -127,6 +128,9 @@ export class GeminiChat {
   // A promise to represent the current state of the message being sent to the
   // model.
   private sendPromise: Promise<void> = Promise.resolve();
+  
+  // Track logged responses to prevent duplicates
+  private loggedResponses: Set<string> = new Set();
 
   constructor(
     private readonly config: Config,
@@ -170,23 +174,52 @@ export class GeminiChat {
     return 'unknown';
   }
 
-  // Helper method to extract tools called
+  // Helper method to extract tools that might be called based on request content
   private _extractToolsCalled(contents: Content[]): string[] {
-    const tools: string[] = [];
-
-    // Look for function calls in the contents
-    for (const content of contents) {
-      if (content.role === 'model' && content.parts) {
-        for (const part of content.parts) {
-          if (part.functionCall && part.functionCall.name) {
-            tools.push(part.functionCall.name);
+    // For API requests, we want to detect what specific tools might be called
+    // by analyzing the user's LATEST request content, not the entire conversation history
+    
+    const potentialTools: string[] = [];
+    
+    // Find the most recent user message (last user content in the array)
+    const latestUserContent = contents.slice().reverse().find(content => content.role === 'user');
+    console.log('DEBUG: latestUserContent:', JSON.stringify(latestUserContent, null, 2));
+    
+    if (latestUserContent && latestUserContent.parts) {
+      for (const part of latestUserContent.parts) {
+        if (part.text) {
+          const text = part.text.toLowerCase();
+          
+          // Look for common patterns that indicate specific tools
+          if (text.includes('@') || text.includes('read') || text.includes('file')) {
+            potentialTools.push('read_file');
+          }
+          if (text.includes('write') || text.includes('create') || text.includes('save')) {
+            potentialTools.push('write_file');
+          }
+          if (text.includes('edit') || text.includes('modify') || text.includes('change')) {
+            potentialTools.push('replace');
+          }
+          if (text.includes('search') || text.includes('find') || text.includes('grep')) {
+            potentialTools.push('search_file_content');
+          }
+          if (text.includes('list') || text.includes('ls') || text.includes('directory')) {
+            potentialTools.push('list_directory');
+          }
+          if (text.includes('run') || text.includes('execute') || text.includes('bash') || text.includes('command')) {
+            potentialTools.push('run_shell_command');
+          }
+          if (text.includes('web') || text.includes('http') || text.includes('url')) {
+            potentialTools.push('web_fetch');
           }
         }
       }
     }
-
-    // Remove duplicates
-    return [...new Set(tools)];
+    
+    // Return empty array for pure chat requests, specific tools for likely tool requests
+    const result = [...new Set(potentialTools)];
+    console.log('DEBUG: _extractToolsCalled result:', result);
+    return result;
   }
 
   // Helper method to determine request context
@@ -259,18 +292,39 @@ export class GeminiChat {
   }
 
   // Helper method to get system prompt length
-  private _getSystemPromptLength(contents: Content[]): number {
-    // In this implementation, we don't have explicit system prompts
-    // but we could check for special content marked as system
-    return 0;
+  private _getSystemPromptLength(contents: Content[], config?: any): number {
+    if (!config?.systemInstruction) {
+      return 0;
+    }
+
+    const systemInstruction = config.systemInstruction;
+    let systemText = '';
+
+    if (typeof systemInstruction === 'string') {
+      systemText = systemInstruction;
+    } else if (typeof systemInstruction === 'object' && 'parts' in systemInstruction) {
+      // Handle Content object with parts
+      systemText = systemInstruction.parts
+        ?.map((part: any) => part.text || '')
+        .join('')
+        || '';
+    } else if (typeof systemInstruction === 'object' && 'text' in systemInstruction) {
+      // Handle simple text object
+      systemText = systemInstruction.text || '';
+    }
+
+    return systemText.length;
   }
 
   private async _logApiRequest(
     contents: Content[],
     model: string,
     prompt_id: string,
-  ): Promise<void> {
+  ): Promise<string> {
     const requestText = this._getRequestTextFromContents(contents);
+
+    // Generate unique request ID
+    const requestId = crypto.randomUUID();
 
     // Collect enhanced data
     const operationType = this._detectOperationType(contents);
@@ -279,13 +333,14 @@ export class GeminiChat {
     const estimatedTokens = this._estimateTokens(contents);
     const conversationTurn = Math.ceil(contents.length / 2); // Rough estimate
     const hasFileContext = this._hasFileContext(contents);
-    const systemPromptLength = this._getSystemPromptLength(contents);
+    const systemPromptLength = this._getSystemPromptLength(contents, this.generationConfig);
 
     logApiRequest(
       this.config,
       new ApiRequestEvent(
         model,
         prompt_id,
+        requestId,
         requestText,
         operationType,
         toolsCalled,
@@ -296,6 +351,8 @@ export class GeminiChat {
         systemPromptLength,
       ),
     );
+
+    return requestId;
   }
 
   // Helper method to detect response type
@@ -345,9 +402,33 @@ export class GeminiChat {
   private async _logApiResponse(
     durationMs: number,
     prompt_id: string,
+    requestId: string,
     usageMetadata?: GenerateContentResponseUsageMetadata,
     responseText?: string,
   ): Promise<void> {
+    // Only log responses that have usageMetadata (successful responses)
+    // Skip logging streaming artifacts or error responses without usage data
+    if (!usageMetadata) {
+      return; // Don't log responses without usage metadata
+    }
+
+    // DEBUG: Temporarily disable duplicate prevention
+    console.log('DEBUG: _logApiResponse called with usageMetadata:', !!usageMetadata, 'requestId:', requestId);
+    
+    // With requestId-based logging, we use requestId instead of prompt_id for duplicate prevention
+    // if (this.loggedResponses.has(requestId)) {
+    //   return; // Already logged this response
+    // }
+    // 
+    // // Mark this response as logged immediately to prevent race conditions
+    // this.loggedResponses.add(requestId);
+    
+    // Clean up old entries to prevent memory leaks (keep only last 100)
+    if (this.loggedResponses.size > 100) {
+      const entries = Array.from(this.loggedResponses);
+      entries.slice(0, 50).forEach(id => this.loggedResponses.delete(id));
+    }
+    
     // Parse response text to get structured data
     let response: unknown = null;
     if (responseText) {
@@ -359,7 +440,7 @@ export class GeminiChat {
       }
     }
 
-    // Collect enhanced data
+    // Collect enhanced data - only set responseType if we have usageMetadata (successful response)
     const responseType = this._detectResponseType(response);
 
     logApiResponse(
@@ -368,6 +449,7 @@ export class GeminiChat {
         this.config.getModel(),
         durationMs,
         prompt_id,
+        requestId,
         this.config.getContentGeneratorConfig()?.authType,
         usageMetadata,
         responseText,
@@ -478,7 +560,7 @@ export class GeminiChat {
     const userContent = createUserContent(params.message);
     const requestContents = this.getHistory(true).concat(userContent);
 
-    this._logApiRequest(requestContents, this.config.getModel(), prompt_id);
+    const requestId = await this._logApiRequest(requestContents, this.config.getModel(), prompt_id);
 
     const startTime = Date.now();
     let response: GenerateContentResponse;
@@ -504,6 +586,7 @@ export class GeminiChat {
             config: { ...this.generationConfig, ...params.config },
           },
           prompt_id,
+          requestId,
         );
       };
 
@@ -523,6 +606,7 @@ export class GeminiChat {
       await this._logApiResponse(
         durationMs,
         prompt_id,
+        requestId,
         response.usageMetadata,
         JSON.stringify(response),
       );
@@ -589,7 +673,7 @@ export class GeminiChat {
     await this.sendPromise;
     const userContent = createUserContent(params.message);
     const requestContents = this.getHistory(true).concat(userContent);
-    this._logApiRequest(requestContents, this.config.getModel(), prompt_id);
+    const requestId = await this._logApiRequest(requestContents, this.config.getModel(), prompt_id);
 
     const startTime = Date.now();
 
@@ -614,6 +698,7 @@ export class GeminiChat {
             config: { ...this.generationConfig, ...params.config },
           },
           prompt_id,
+          requestId,
         );
       };
 
@@ -647,6 +732,7 @@ export class GeminiChat {
         userContent,
         startTime,
         prompt_id,
+        requestId,
       );
       return result;
     } catch (error) {
@@ -728,6 +814,7 @@ export class GeminiChat {
     inputContent: Content,
     startTime: number,
     prompt_id: string,
+    requestId: string,
   ) {
     const outputContent: Content[] = [];
     const chunks: GenerateContentResponse[] = [];
@@ -766,6 +853,7 @@ export class GeminiChat {
       await this._logApiResponse(
         durationMs,
         prompt_id,
+        requestId,
         this.getFinalUsageMetadata(chunks),
         JSON.stringify(chunks),
       );

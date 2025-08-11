@@ -26,6 +26,7 @@ import { logApiResponse } from '../telemetry/loggers.js';
 import { ApiResponseEvent } from '../telemetry/types.js';
 import { Config } from '../config/config.js';
 import { openaiLogger } from '../utils/openaiLogger.js';
+import * as crypto from 'crypto';
 
 // OpenAI API type definitions for logging
 interface OpenAIToolCall {
@@ -188,6 +189,7 @@ export class OpenAIContentGenerator implements ContentGenerator {
   async generateContent(
     request: GenerateContentParameters,
     userPromptId: string,
+    requestId?: string,
   ): Promise<GenerateContentResponse> {
     const startTime = Date.now();
     const messages = this.convertToOpenAIFormat(request);
@@ -229,6 +231,7 @@ export class OpenAIContentGenerator implements ContentGenerator {
         this.model,
         durationMs,
         userPromptId,
+        requestId || ('openai-' + crypto.randomUUID()), // Use provided requestId or generate new one
         this.config.getContentGeneratorConfig()?.authType,
         response.usageMetadata,
       );
@@ -283,6 +286,7 @@ export class OpenAIContentGenerator implements ContentGenerator {
         this.model,
         durationMs,
         userPromptId,
+        'openai-error-' + crypto.randomUUID(), // Generate requestId for OpenAI error calls
         this.config.getContentGeneratorConfig()?.authType,
         estimatedUsage,
         undefined,
@@ -323,6 +327,7 @@ export class OpenAIContentGenerator implements ContentGenerator {
   async generateContentStream(
     request: GenerateContentParameters,
     userPromptId: string,
+    requestId?: string,
   ): Promise<AsyncGenerator<GenerateContentResponse>> {
     const startTime = Date.now();
     const messages = this.convertToOpenAIFormat(request);
@@ -383,6 +388,7 @@ export class OpenAIContentGenerator implements ContentGenerator {
             this.model,
             durationMs,
             userPromptId,
+            requestId || ('openai-stream-' + crypto.randomUUID()), // Use provided requestId or generate new one
             this.config.getContentGeneratorConfig()?.authType,
             finalUsageMetadata,
           );
@@ -439,6 +445,7 @@ export class OpenAIContentGenerator implements ContentGenerator {
             this.model,
             durationMs,
             userPromptId,
+            requestId || ('openai-stream-error-' + crypto.randomUUID()), // Use provided requestId or generate new one
             this.config.getContentGeneratorConfig()?.authType,
             estimatedUsage,
             undefined,
@@ -512,6 +519,7 @@ export class OpenAIContentGenerator implements ContentGenerator {
         this.model,
         durationMs,
         userPromptId,
+        'openai-error-' + crypto.randomUUID(), // Generate requestId for OpenAI error calls
         this.config.getContentGeneratorConfig()?.authType,
         estimatedUsage,
         undefined,
