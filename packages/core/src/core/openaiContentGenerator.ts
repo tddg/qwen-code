@@ -22,8 +22,6 @@ import {
 } from '@google/genai';
 import { ContentGenerator } from './contentGenerator.js';
 import OpenAI from 'openai';
-import { logApiResponse } from '../telemetry/loggers.js';
-import { ApiResponseEvent } from '../telemetry/types.js';
 import { Config } from '../config/config.js';
 import { openaiLogger } from '../utils/openaiLogger.js';
 import * as crypto from 'crypto';
@@ -191,6 +189,11 @@ export class OpenAIContentGenerator implements ContentGenerator {
     userPromptId: string,
     requestId?: string,
   ): Promise<GenerateContentResponse> {
+    console.error('DEBUG: OpenAIContentGenerator.generateContent called with userPromptId:', userPromptId, 'requestId:', requestId);
+    try {
+      const fs = require('fs');
+      fs.appendFileSync('./debug.log', `DEBUG: OpenAIContentGenerator.generateContent called with userPromptId: ${userPromptId} requestId: ${requestId}\n`);
+    } catch (e) {}
     const startTime = Date.now();
     const messages = this.convertToOpenAIFormat(request);
 
@@ -226,17 +229,12 @@ export class OpenAIContentGenerator implements ContentGenerator {
       const response = this.convertToGeminiFormat(completion);
       const durationMs = Date.now() - startTime;
 
-      // Log API response event for UI telemetry
-      const responseEvent = new ApiResponseEvent(
-        this.model,
-        durationMs,
-        userPromptId,
-        requestId || ('openai-' + crypto.randomUUID()), // Use provided requestId or generate new one
-        this.config.getContentGeneratorConfig()?.authType,
-        response.usageMetadata,
-      );
+      console.error('DEBUG: OpenAIContentGenerator SUCCESS - usageMetadata:', !!response.usageMetadata, 'requestId:', requestId);
+      try {
+        const fs = require('fs');
+        fs.appendFileSync('./debug.log', `DEBUG: OpenAIContentGenerator SUCCESS - usageMetadata: ${!!response.usageMetadata} requestId: ${requestId}\n`);
+      } catch (e) {}
 
-      logApiResponse(this.config, responseEvent);
 
       // Log interaction if enabled
       if (this.config.getContentGeneratorConfig()?.enableOpenAILogging) {
@@ -281,18 +279,6 @@ export class OpenAIContentGenerator implements ContentGenerator {
         };
       }
 
-      // Log API error event for UI telemetry with estimated usage
-      const errorEvent = new ApiResponseEvent(
-        this.model,
-        durationMs,
-        userPromptId,
-        'openai-error-' + crypto.randomUUID(), // Generate requestId for OpenAI error calls
-        this.config.getContentGeneratorConfig()?.authType,
-        estimatedUsage,
-        undefined,
-        errorMessage,
-      );
-      logApiResponse(this.config, errorEvent);
 
       // Log error interaction if enabled
       if (this.config.getContentGeneratorConfig()?.enableOpenAILogging) {
@@ -329,6 +315,11 @@ export class OpenAIContentGenerator implements ContentGenerator {
     userPromptId: string,
     requestId?: string,
   ): Promise<AsyncGenerator<GenerateContentResponse>> {
+    console.error('DEBUG: OpenAIContentGenerator.generateContentStream called with userPromptId:', userPromptId, 'requestId:', requestId);
+    try {
+      const fs = require('fs');
+      fs.appendFileSync('./debug.log', `DEBUG: OpenAIContentGenerator.generateContentStream called with userPromptId: ${userPromptId} requestId: ${requestId}\n`);
+    } catch (e) {}
     const startTime = Date.now();
     const messages = this.convertToOpenAIFormat(request);
 
@@ -383,17 +374,12 @@ export class OpenAIContentGenerator implements ContentGenerator {
             .reverse()
             .find((r) => r.usageMetadata)?.usageMetadata;
 
-          // Log API response event for UI telemetry
-          const responseEvent = new ApiResponseEvent(
-            this.model,
-            durationMs,
-            userPromptId,
-            requestId || ('openai-stream-' + crypto.randomUUID()), // Use provided requestId or generate new one
-            this.config.getContentGeneratorConfig()?.authType,
-            finalUsageMetadata,
-          );
+          console.error('DEBUG: OpenAIContentGenerator STREAMING SUCCESS - finalUsageMetadata:', !!finalUsageMetadata, 'requestId:', requestId);
+          try {
+            const fs = require('fs');
+            fs.appendFileSync('./debug.log', `DEBUG: OpenAIContentGenerator STREAMING SUCCESS - finalUsageMetadata: ${!!finalUsageMetadata} requestId: ${requestId}\n`);
+          } catch (e) {}
 
-          logApiResponse(this.config, responseEvent);
 
           // Log interaction if enabled (same as generateContent method)
           if (this.config.getContentGeneratorConfig()?.enableOpenAILogging) {
@@ -440,18 +426,6 @@ export class OpenAIContentGenerator implements ContentGenerator {
             };
           }
 
-          // Log API error event for UI telemetry with estimated usage
-          const errorEvent = new ApiResponseEvent(
-            this.model,
-            durationMs,
-            userPromptId,
-            requestId || ('openai-stream-error-' + crypto.randomUUID()), // Use provided requestId or generate new one
-            this.config.getContentGeneratorConfig()?.authType,
-            estimatedUsage,
-            undefined,
-            errorMessage,
-          );
-          logApiResponse(this.config, errorEvent);
 
           // Log error interaction if enabled
           if (this.config.getContentGeneratorConfig()?.enableOpenAILogging) {
@@ -514,18 +488,6 @@ export class OpenAIContentGenerator implements ContentGenerator {
         };
       }
 
-      // Log API error event for UI telemetry with estimated usage
-      const errorEvent = new ApiResponseEvent(
-        this.model,
-        durationMs,
-        userPromptId,
-        'openai-error-' + crypto.randomUUID(), // Generate requestId for OpenAI error calls
-        this.config.getContentGeneratorConfig()?.authType,
-        estimatedUsage,
-        undefined,
-        errorMessage,
-      );
-      logApiResponse(this.config, errorEvent);
 
       // Allow subclasses to suppress error logging for specific scenarios
       if (!this.shouldSuppressErrorLogging(error, request)) {

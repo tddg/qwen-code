@@ -183,7 +183,6 @@ export class GeminiChat {
     
     // Find the most recent user message (last user content in the array)
     const latestUserContent = contents.slice().reverse().find(content => content.role === 'user');
-    console.log('DEBUG: latestUserContent:', JSON.stringify(latestUserContent, null, 2));
     
     if (latestUserContent && latestUserContent.parts) {
       for (const part of latestUserContent.parts) {
@@ -217,9 +216,7 @@ export class GeminiChat {
     }
     
     // Return empty array for pure chat requests, specific tools for likely tool requests
-    const result = [...new Set(potentialTools)];
-    console.log('DEBUG: _extractToolsCalled result:', result);
-    return result;
+    return [...new Set(potentialTools)];
   }
 
   // Helper method to determine request context
@@ -399,65 +396,6 @@ export class GeminiChat {
     return 'error';
   }
 
-  private async _logApiResponse(
-    durationMs: number,
-    prompt_id: string,
-    requestId: string,
-    usageMetadata?: GenerateContentResponseUsageMetadata,
-    responseText?: string,
-  ): Promise<void> {
-    // Only log responses that have usageMetadata (successful responses)
-    // Skip logging streaming artifacts or error responses without usage data
-    if (!usageMetadata) {
-      return; // Don't log responses without usage metadata
-    }
-
-    // DEBUG: Temporarily disable duplicate prevention
-    console.log('DEBUG: _logApiResponse called with usageMetadata:', !!usageMetadata, 'requestId:', requestId);
-    
-    // With requestId-based logging, we use requestId instead of prompt_id for duplicate prevention
-    // if (this.loggedResponses.has(requestId)) {
-    //   return; // Already logged this response
-    // }
-    // 
-    // // Mark this response as logged immediately to prevent race conditions
-    // this.loggedResponses.add(requestId);
-    
-    // Clean up old entries to prevent memory leaks (keep only last 100)
-    if (this.loggedResponses.size > 100) {
-      const entries = Array.from(this.loggedResponses);
-      entries.slice(0, 50).forEach(id => this.loggedResponses.delete(id));
-    }
-    
-    // Parse response text to get structured data
-    let response: unknown = null;
-    if (responseText) {
-      try {
-        response = JSON.parse(responseText);
-      } catch (e) {
-        // If parsing fails, we'll work with the raw text
-        // This is expected for streaming responses
-      }
-    }
-
-    // Collect enhanced data - only set responseType if we have usageMetadata (successful response)
-    const responseType = this._detectResponseType(response);
-
-    logApiResponse(
-      this.config,
-      new ApiResponseEvent(
-        this.config.getModel(),
-        durationMs,
-        prompt_id,
-        requestId,
-        this.config.getContentGeneratorConfig()?.authType,
-        usageMetadata,
-        responseText,
-        undefined, // error
-        responseType,
-      ),
-    );
-  }
 
   private _logApiError(
     durationMs: number,
@@ -603,13 +541,6 @@ export class GeminiChat {
         authType: this.config.getContentGeneratorConfig()?.authType,
       });
       const durationMs = Date.now() - startTime;
-      await this._logApiResponse(
-        durationMs,
-        prompt_id,
-        requestId,
-        response.usageMetadata,
-        JSON.stringify(response),
-      );
 
       this.sendPromise = (async () => {
         const outputContent = response.candidates?.[0]?.content;
@@ -850,13 +781,7 @@ export class GeminiChat {
           allParts.push(...content.parts);
         }
       }
-      await this._logApiResponse(
-        durationMs,
-        prompt_id,
-        requestId,
-        this.getFinalUsageMetadata(chunks),
-        JSON.stringify(chunks),
-      );
+      const usageMetadata = this.getFinalUsageMetadata(chunks);
     }
     this.recordHistory(inputContent, outputContent);
   }

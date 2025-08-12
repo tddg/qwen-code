@@ -217,7 +217,9 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
         import('@qwen-code/qwen-code-core')
           .then((core) => {
             const logger = core.UserBehaviorLogger.getInstance(config);
-            logger.logTypingStart(config.getSessionId() + '########' + Date.now());
+            logger.logTypingStart(
+              config.getSessionId() + '########' + Date.now(),
+            );
           })
           .catch(() => {
             // Silently ignore logging errors

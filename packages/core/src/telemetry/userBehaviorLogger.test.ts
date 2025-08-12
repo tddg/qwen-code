@@ -38,9 +38,15 @@ describe('UserBehaviorLogger', () => {
   });
 
   afterEach(() => {
-    // Clean up log file after each test
-    if (fs.existsSync(logFilePath)) {
-      fs.unlinkSync(logFilePath);
+    // Clean up all log files in the logs directory that match our test pattern
+    const logsDir = path.join(process.cwd(), 'logs');
+    if (fs.existsSync(logsDir)) {
+      const files = fs.readdirSync(logsDir);
+      files.forEach(file => {
+        if (file.match(/\d{4}-\d{2}-\d{2}-[a-zA-Z0-9-]{8}.*\.jsonl$/)) {
+          fs.unlinkSync(path.join(logsDir, file));
+        }
+      });
     }
 
     // Reset singleton instance
@@ -48,9 +54,10 @@ describe('UserBehaviorLogger', () => {
     UserBehaviorLogger.instance = undefined;
   });
 
-  it('should create a log file in the logs directory', () => {
+  it('should create a log file in the logs directory with date and session format', () => {
     expect(logFilePath).toContain('logs');
-    expect(logFilePath).toContain('user-behavior.log');
+    // Should match YYYY-MM-DD-sessionPrefix.jsonl (where sessionPrefix is first 8 chars of session ID)
+    expect(logFilePath).toMatch(/\d{4}-\d{2}-\d{2}-[a-zA-Z0-9-]{8}\.jsonl$/);
   });
 
   it('should log user behavior events to file', async () => {
@@ -77,6 +84,12 @@ describe('UserBehaviorLogger', () => {
     expect(loggedEvent.content).toBe('test prompt content');
     expect(loggedEvent.inputTokenCount).toBe(10);
     expect(loggedEvent.sessionId).toBe('test-session-id');
+    expect(loggedEvent.studentIdHash).toBeDefined();
+    expect(loggedEvent.machineIdHash).toBeDefined();
+    expect(typeof loggedEvent.studentIdHash).toBe('string');
+    expect(typeof loggedEvent.machineIdHash).toBe('string');
+    expect(loggedEvent.studentIdHash).toHaveLength(16);
+    expect(loggedEvent.machineIdHash).toHaveLength(16);
   });
 
   it('should handle multiple events in the same log file', async () => {
@@ -221,7 +234,7 @@ describe('UserBehaviorLogger', () => {
     const model = 'test-model';
     const promptId = 'test-prompt-id';
 
-    logger.logApiRequest(model, promptId);
+    logger.logApiRequest(model, promptId, 'test-request-id');
 
     // Wait a bit for the async logging to complete
     await new Promise((resolve) => setTimeout(resolve, 10));
@@ -246,6 +259,7 @@ describe('UserBehaviorLogger', () => {
     logger.logApiResponse(
       model,
       promptId,
+      'test-request-id',
       inputTokenCount,
       outputTokenCount,
       durationMs,
@@ -265,5 +279,23 @@ describe('UserBehaviorLogger', () => {
     expect(loggedEvent.inputTokenCount).toBe(50);
     expect(loggedEvent.outputTokenCount).toBe(75);
     expect(loggedEvent.durationMs).toBe(1234);
+  });
+
+  it('should provide access to student and machine ID hashes', () => {
+    const studentIdHash = logger.getStudentIdHash();
+    const machineIdHash = logger.getMachineIdHash();
+    
+    expect(typeof studentIdHash).toBe('string');
+    expect(typeof machineIdHash).toBe('string');
+    expect(studentIdHash).toHaveLength(16);
+    expect(machineIdHash).toHaveLength(16);
+    expect(studentIdHash).toMatch(/^[a-f0-9]{16}$/);
+    expect(machineIdHash).toMatch(/^[a-f0-9]{16}$/);
+  });
+
+  it('should provide current roll number', () => {
+    const rollNumber = logger.getCurrentRollNumber();
+    expect(typeof rollNumber).toBe('number');
+    expect(rollNumber).toBe(0); // Initially should be 0
   });
 });

@@ -5,6 +5,7 @@ This document describes the implementation of user behavior logging in the Qwen 
 ## Overview
 
 The user behavior logging system tracks four key events in the user interaction flow:
+
 1. **Typing Start** - When a user begins typing in the input prompt
 2. **Prompt Submission** - When a user submits a prompt to the AI
 3. **API Request** - When an API request is sent to the AI service
@@ -111,6 +112,7 @@ Example log entries:
 ## Testing
 
 Unit tests for the user behavior logging are implemented in:
+
 - `packages/cli/src/ui/components/InputPrompt.userBehavior.test.tsx` - Tests for typing start event logging
 
 These tests mock the core logger to verify that events are properly triggered under the right conditions.

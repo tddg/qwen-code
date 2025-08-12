@@ -171,6 +171,9 @@ Design for a good user experience - Provide clear, minimal, and non-blocking UI 
    - Show before/after examples when suggesting changes
    - Only suggest changes that meaningfully improve optimization potential
 
+3. Do not build and replace current working binary (qwen-cs6501), as we are using it for coding.
+   - If needed, always build a standalone executable that **DO NOT** overwrite qwen-cs6501.
+
 ### Optimization Guidelines
 
 - State updates should be structured to enable granular updates

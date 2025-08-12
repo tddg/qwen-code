@@ -181,7 +181,7 @@ describe('InputPrompt - User Behavior Logging', () => {
 
     // Verify that logTypingStart was called
     expect(mockLogTypingStart).toHaveBeenCalled();
-    
+
     // Verify it's only called once
     stdin.write('e');
     await wait();

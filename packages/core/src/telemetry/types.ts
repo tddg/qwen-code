@@ -246,13 +246,7 @@ export class ApiResponseEvent {
   prompt_id: string;
   request_id: string; // Unique identifier linking this response to its request
   auth_type?: string;
-  // Enhanced fields
-  response_type?:
-    | 'tool_call'
-    | 'text_response'
-    | 'mixed'
-    | 'error'
-    | 'streaming_chunk';
+  response_type?: 'tool_call' | 'text_response' | 'mixed' | 'error' | 'streaming_chunk';
 
   constructor(
     model: string,
@@ -263,12 +257,7 @@ export class ApiResponseEvent {
     usage_data?: GenerateContentResponseUsageMetadata,
     response_text?: string,
     error?: string,
-    response_type?:
-      | 'tool_call'
-      | 'text_response'
-      | 'mixed'
-      | 'error'
-      | 'streaming_chunk',
+    response_type?: 'tool_call' | 'text_response' | 'mixed' | 'error' | 'streaming_chunk',
   ) {
     this['event.name'] = 'api_response';
     this['event.timestamp'] = new Date().toISOString();

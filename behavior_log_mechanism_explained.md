@@ -16,6 +16,7 @@ The Qwen CLI implements comprehensive user behavior logging to track user intera
 All events are logged to `./logs/user-behavior.log` in JSONL format (one JSON object per line).
 
 ### Common Fields
+
 - `eventType`: One of the four event types above
 - `timestamp`: ISO timestamp of the event
 - `promptId`: Unique identifier to correlate events from the same user prompt
@@ -24,6 +25,7 @@ All events are logged to `./logs/user-behavior.log` in JSONL format (one JSON ob
 ### Event-Specific Fields
 
 #### typing_start
+
 ```json
 {
   "eventType": "typing_start",
@@ -34,6 +36,7 @@ All events are logged to `./logs/user-behavior.log` in JSONL format (one JSON ob
 ```
 
 #### prompt_submit
+
 ```json
 {
   "eventType": "prompt_submit",
@@ -46,6 +49,7 @@ All events are logged to `./logs/user-behavior.log` in JSONL format (one JSON ob
 ```
 
 #### api_request
+
 ```json
 {
   "eventType": "api_request",
@@ -57,6 +61,7 @@ All events are logged to `./logs/user-behavior.log` in JSONL format (one JSON ob
 ```
 
 #### api_response
+
 ```json
 {
   "eventType": "api_response",
@@ -84,6 +89,7 @@ A single `prompt_submit` often triggers multiple `api_request`/`api_response` pa
 ### 2. High Input Token Counts with Low Output Token Counts
 
 This is normal behavior:
+
 - **Input tokens**: Represent the entire conversation context (system prompts, previous messages, file context, current prompt)
 - **Output tokens**: Represent only the model's response to the current request
 - Example: 72,609 input tokens vs 84 output tokens is typical for contextual AI responses
@@ -91,6 +97,7 @@ This is normal behavior:
 ### 3. API Requests Without Token Information
 
 API requests don't include token counts because:
+
 - Token information is only available after receiving the response
 - Privacy considerations - full request payloads can contain sensitive information
 - The `api_request` event only logs metadata needed for tracking
@@ -98,6 +105,7 @@ API requests don't include token counts because:
 ## Event Correlation
 
 All related events share the same `promptId`, allowing you to:
+
 - Trace the complete flow from user submission to final AI response
 - Analyze retry patterns and streaming behavior
 - Measure end-to-end latency for user interactions
@@ -105,17 +113,20 @@ All related events share the same `promptId`, allowing you to:
 ## Implementation Details
 
 ### Logging Infrastructure
+
 - **Location**: `./logs/user-behavior.log` relative to where the CLI is executed
 - **Method**: Synchronous file append for immediate persistence
 - **Format**: JSONL (JSON objects on separate lines)
 - **Conditional**: Only logs when telemetry is enabled
 
 ### Privacy Considerations
+
 - Prompt content is only logged in `prompt_submit` events
 - API request payloads are not logged to protect sensitive information
 - All logs are stored locally in the project's `logs` directory
 
 ### Error Handling
+
 - Logging errors are silently ignored to never interrupt the user experience
 - File system operations use synchronous methods for reliability
 
@@ -129,11 +140,13 @@ All related events share the same `promptId`, allowing you to:
 ## Normal vs. Abnormal Patterns
 
 ### Normal Patterns
+
 - Multiple `api_response` entries per `api_request` (streaming)
 - Large input token counts with smaller output token counts
 - `api_request` entries with only model and promptId information
 
 ### Patterns Requiring Investigation
+
 - `api_request` without corresponding `api_response` (potential failures)
 - Consistently zero token counts in `api_response` entries
 - Excessive retry patterns (systematic failures)
